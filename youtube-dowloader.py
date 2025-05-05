@@ -1,7 +1,10 @@
-from tkinter import *
-from pytubefix import YouTube
+import shutil
+from pathlib import Path
 import threading
 
+from tkinter import *
+from pytubefix import YouTube
+from moviepy import AudioFileClip
 
 class Application:
     def __init__(self, master=None):
@@ -38,13 +41,16 @@ class Application:
         thread.start()
 
     def baixar_em_thread(self, url):
+        self.atualizar_mensagem("Baixando...", "blue")
         try:
             yt = YouTube(url)
             audio_stream = yt.streams.filter(only_audio=True).order_by('abr').desc().first()
 
 
             if audio_stream:
-                audio_stream.download(output_path="pasta_video")
+                path = Path(".", "dist", "temp")
+                path.mkdir(exist_ok=True)
+                audio_stream.download(output_path=path)
                 self.atualizar_mensagem("Download concluído!", "green")
             else:
                 self.atualizar_mensagem("Nenhum áudio encontrado.", "red")
@@ -54,6 +60,27 @@ class Application:
                 self.atualizar_mensagem("URL inválida.", "red")
             else:
                 self.atualizar_mensagem(f"Erro: {str(e)}", "red")
+
+        else:
+            self.converter_video()
+            
+    def converter_video(self):
+        self.atualizar_mensagem("Convertendo...", "blue")
+        path_in = Path(".", "dist", "temp")
+        path_out = Path(".", "dist", "pasta_video")
+        for file in path_in.iterdir():
+            if file.name.endswith((".mp4", ".m4a", ".mkv", ".avi")):
+                audio_clip = AudioFileClip(file)
+                file_out_name = "_".join(file.name.split(".")[:-1]) + ".mp3"
+                audio_clip.write_audiofile(path_out / file_out_name)
+                audio_clip.close()
+                if path_in.exists():
+                    shutil.rmtree(path_in)
+                    
+                self.atualizar_mensagem("Conversão concluida!", "green")
+                break
+        else:
+            self.atualizar_mensagem("Nenhum áudio encontrado.", "red")
 
     def atualizar_mensagem(self, texto, cor):
         def _atualizar():
